@@ -9,33 +9,63 @@ import {
   Image,
   FlatList,
 } from 'react-native';
-import { router } from 'expo-router';
+import { Link } from 'expo-router';
 
+// Mock data
+const mockTeachers = [
+  { id: 't1', name: 'Profa. García', subject: 'Matemáticas' },
+  { id: 't2', name: 'Profa. López', subject: 'Historia' },
+  { id: 't3', name: 'Profa. Pérez', subject: 'Inglés' },
+  { id: 't4', name: 'Profa. Sánchez', subject: 'Ciencias' },
+];
 
-export default function Index() {
-  const handleGetStarted = () => {
-    router.push('/login');
-  };
-
+export default function Home() {
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.logoSection}>
-        
-          <View >
-            {/* Aquí puedes poner tu logo real más adelante */}
-            <Image source={{ uri: 'https://i.ibb.co/xtJPqLMJ/Escudo-1.png', }}
-            style={{ width: 150, height: 150 }}/>
-          </View>
-          <Text style={styles.header}>Escuela Metropolitana   {'\n'}  Agenda de citas</Text>
-          </View>
-      
-      
-        <TouchableOpacity style={styles.mainBtn}
-          onPress={handleGetStarted}
-          activeOpacity={0.5}
-        >
-          <Text style={styles.getStartedText}>Ingresar</Text>
+      {/* ENCABEZADO */}
+      <View style={styles.header}>
+        <Link href="/"> {/* flecha “atrás” simulada */}
+          <Text style={styles.backArrow}>←</Text>
+        </Link>
+
+        <Image
+          source={require('../assets/images/avatar.png')} // circular placeholder
+          style={styles.avatar}
+        />
+
+        <View style={{ flex: 1 }} />
+
+        <TouchableOpacity style={styles.profileDot} />
+      </View>
+
+      {/* BOTÓN AGENDAR */}
+      <Link href="/schedule" asChild>
+        <TouchableOpacity style={styles.mainBtn}>
+          <Text style={styles.mainBtnText}>Agendar una cita</Text>
         </TouchableOpacity>
+      </Link>
+
+      {/* DOCENTES DISPONIBLES */}
+      <View style={styles.teacherSection}>
+        <Text style={styles.sectionTitle}>Profesores disponibles</Text>
+
+        <FlatList
+          data={mockTeachers}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <Link href={`/teacher/${item.id}`} asChild>
+              <TouchableOpacity style={styles.teacherRow}>
+                <View style={styles.teacherAvatar} />
+                <Text style={styles.teacherName}>{item.name}</Text>
+                <View style={{ flex: 1 }} />
+                <Text style={styles.teacherArrow}>→</Text>
+              </TouchableOpacity>
+            </Link>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          scrollEnabled={false}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -46,39 +76,23 @@ const COLORS = {
   blue: '#3A557C',
   green: '#8FC027',
   gray: '#A6A6A6',
-  background: '#000000',
+  background: '#FFFFFF',
   dark: '#111111',
-  accent: '#8FC027',
-  text: '#FFFFFF',
-  lightGray: '#333333',
-  border: '#FFFFFF',
-
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    paddingTop: 80,
-    
   },
   /* header */
   header: {
     alignItems: 'center',
-    fontSize:30,
-    color: COLORS.text,
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 32,
-    marginBottom: 20,
-  },
-    getStartedText: {
-    color: COLORS.background,
-    fontSize: 18,
-    fontWeight: 'bold',
   },
   backArrow: {
-    
     fontSize: 24,
     color: COLORS.dark,
     position: 'absolute',
@@ -112,25 +126,6 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  /*Logo*/
-    logoSection: {
-    alignItems: 'center',
-  },
-  logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: COLORS.gray,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 50,
-    borderColor: COLORS.accent,
-  },
-  logo: {
-    color: COLORS.accent,
-    fontWeight: 'bold',
-    
   },
 
   /* teachers list */
@@ -170,5 +165,4 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#284166',
   },
-  
 });
