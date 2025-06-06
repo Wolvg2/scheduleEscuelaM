@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
+  Image
 
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -30,33 +31,64 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
+  const [subject, setSubject] = useState('');
 
   const handlePress = async () => {
     if (tab == 'register') {
-      const userCredential = await registerUser(email, password, name, role);
+      if (role == 'docente' && !subject.trim) {
+        alert('Favor de poner la materia que enseña');
+        return;
+      }
+      const userCredential = await registerUser(email, password, name, role, role == 'docente' ? subject : undefined);
       if (userCredential) {
         console.log("Usuario registrado: " + userCredential.user.email);
-        router.push('/home');
+        switch (role) {
+          case 'docente':
+            router.push('/homeDocente');
+            break;
+          case 'tutor':
+            router.push('/home');
+            break;
+          case 'admin':
+            router.push('/homeAdmin');
+            break;
+        }
       }
     } else {
       // Logica Login por hacer
-      if(tab == 'login'){
-        const userCredential = await loginUser(email,password);
-        if(userCredential){
+      if (tab == 'login') {
+        const userCredential = await loginUser(email, password);
+        if (userCredential) {
           console.log("Usuario inicio sesion con exito");
-          router.push('/home');
+          switch (role) {
+            case 'docente':
+              router.push('/homeDocente');
+              break;
+            case 'tutor':
+              router.push('/home');
+              break;
+            case 'admin':
+              router.push('/homeAdmin');
+              break;
+          }
         }
       }
+    }
+  }
+
+  // Función para lquitar el campo de materia cuando no es profesor
+  const handleRoleChange = (itemValue: string) => {
+    setRole(itemValue);
+    if (itemValue !== 'docente') {
+      setSubject('');
     }
   }
 
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* LOGO */}
-      <View style={styles.logoContainer}>
-        {/* Reemplazar por el logo mas adelante */}
-        <Text style={styles.logoPlaceholder}>[LOGO]</Text>
+      <View style={styles.logoSection}>
+        <Image source={{ uri: 'https://i.ibb.co/xtJPqLMJ/Escudo-1.png', }} style={{ width: 150, height: 150 }} />
       </View>
 
       {/* TABS */}
@@ -139,6 +171,19 @@ export default function LoginScreen() {
             <Picker.Item label='Profesor/a' value="docente" />
             <Picker.Item label='Administrador' value="admin" />
           </Picker>
+
+          {role == 'docente' && (
+            <View>
+              <TextInput
+                style={styles.input}
+                placeholder="Materia"
+                placeholderTextColor={COLORS.lightGray}
+                secureTextEntry
+                value={subject}
+                onChangeText={setSubject}
+              />
+            </View>
+          )}
         </View>
       )}
 
@@ -254,6 +299,14 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  logoSection: {
+    alignItems: 'center',
+  },
+  logo: {
+    color: COLORS.accent,
+    fontWeight: 'bold',
+
   },
 });
 

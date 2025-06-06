@@ -22,7 +22,6 @@ export default function Index() {
       <View style={styles.logoSection}>
         
           <View >
-            {/* Aquí puedes poner tu logo real más adelante */}
             <Image source={{ uri: 'https://i.ibb.co/xtJPqLMJ/Escudo-1.png', }}
             style={{ width: 150, height: 150 }}/>
           </View>

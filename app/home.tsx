@@ -1,5 +1,5 @@
 // app/index.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,59 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { Link } from 'expo-router';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase/config';
 
-// Mock data
-const mockTeachers = [
-  { id: 't1', name: 'Profa. García', subject: 'Matemáticas' },
-  { id: 't2', name: 'Profa. López', subject: 'Historia' },
-  { id: 't3', name: 'Profa. Pérez', subject: 'Inglés' },
-  { id: 't4', name: 'Profa. Sánchez', subject: 'Ciencias' },
-];
 
 export default function Home() {
+
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  type Teacher = {
+  id:string
+  name: string;
+  subject: string;
+};
+
+
+  const fetchTeachers = async ()=> {
+    try{
+      setLoading(true);
+
+      const teachersQuery = query(
+        collection(db,'users'),
+        where('role','==','docente'),
+        where('emailVerified','==',true)
+
+      );
+      
+      const querySnapshot = await getDocs(teachersQuery);
+      const teachersData: Teacher[] = [];
+
+      querySnapshot.forEach((doc)=>{
+        const data = doc.data();
+        teachersData.push({
+          id:data.id,
+          name:data.name,
+          subject:data.subject
+        });
+      });
+      setTeachers(teachersData);
+    } catch(error){
+      console.error('Error en bsucar profesores',error);
+    }finally{
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
+
   return (
     <ScrollView style={styles.container}>
       {/* ENCABEZADO */}
@@ -50,13 +91,14 @@ export default function Home() {
         <Text style={styles.sectionTitle}>Profesores disponibles</Text>
 
         <FlatList
-          data={mockTeachers}
+          data={teachers}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <Link href={`/teacher/${item.id}`} asChild>
               <TouchableOpacity style={styles.teacherRow}>
                 <View style={styles.teacherAvatar} />
                 <Text style={styles.teacherName}>{item.name}</Text>
+                <Text style={styles.teacherName}>{item.subject}</Text>
                 <View style={{ flex: 1 }} />
                 <Text style={styles.teacherArrow}>→</Text>
               </TouchableOpacity>
@@ -164,5 +206,15 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: '#284166',
+  },
+
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    color: COLORS.background,
+    marginTop: 12,
+    fontSize: 16,
   },
 });

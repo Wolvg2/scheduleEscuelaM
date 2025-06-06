@@ -5,7 +5,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVe
 
 
 // Registro de usuarios 
-export const registerUser = async(email: string, password:string,name: string, role:string) => {
+export const registerUser = async(email: string, password:string,name: string, role:string,subject?:string) => {
     try{
         if (password.length < 12 || 
             !/[A-Z]/.test(password) ||
@@ -21,13 +21,20 @@ export const registerUser = async(email: string, password:string,name: string, r
 
         await sendEmail(user);
 
-        const usuarios = doc(db,"users", user.uid );
-        await setDoc(usuarios, {
+        const baseUserData = {
             email,
             name,
             role,
-            emailVerified: false
-        });
+            emailVerified:false
+        };
+
+        const userData = role === 'docente' && subject 
+      ? { ...baseUserData, subject }
+      : baseUserData;
+
+      
+        const usuarios = doc(db,"users",user.uid);
+        await setDoc(usuarios,userData);
 
         console.log("Usuario registrado exitosamente");
         return userCredential;
