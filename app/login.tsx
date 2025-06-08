@@ -13,7 +13,7 @@ import {
 
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { loginUser, registerUser } from '@/hooks/useAuth';
+import { loginUser, registerUser, resendEmail } from '@/hooks/useAuth';
 import { router } from 'expo-router';
 
 // Colores base
@@ -30,60 +30,93 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState('tutor'); // Set default value to 'tutor'
   const [subject, setSubject] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const navigateByRole = (userRole: string) => {
+    switch (userRole) {
+      case 'docente':
+        router.push('/homeDocente');
+        break;
+      case 'tutor':
+        router.push('/home');
+        break;
+      case 'admin':
+        router.push('/homeAdmin');
+        break;
+      default:
+        router.push('/home');
+    }
+  };
 
   const handlePress = async () => {
-    if (tab == 'register') {
-      if (role == 'docente' && !subject.trim) {
-        alert('Favor de poner la materia que enseña');
-        return;
-      }
-      const userCredential = await registerUser(email, password, name, role, role == 'docente' ? subject : undefined);
-      if (userCredential) {
-        console.log("Usuario registrado: " + userCredential.user.email);
-        switch (role) {
-          case 'docente':
-            router.push('/homeDocente');
-            break;
-          case 'tutor':
-            router.push('/home');
-            break;
-          case 'admin':
-            router.push('/homeAdmin');
-            break;
-        }
-      }
-    } else {
-      // Logica Login por hacer
-      if (tab == 'login') {
-        const userCredential = await loginUser(email, password);
-        if (userCredential) {
-          console.log("Usuario inicio sesion con exito");
-          switch (role) {
-            case 'docente':
-              router.push('/homeDocente');
-              break;
-            case 'tutor':
-              router.push('/home');
-              break;
-            case 'admin':
-              router.push('/homeAdmin');
-              break;
-          }
-        }
-      }
-    }
-  }
+    if (loading) return;
 
-  // Función para lquitar el campo de materia cuando no es profesor
+    if (!email.trim() || !password.trim()) {
+      alert('Favor de llenar todos los campos');
+      return;
+    }
+    if (tab == 'register' && !name.trim()) {
+      alert('Favor de poner su nombre completo');
+      return;
+    }
+    if (tab === 'register' && !role) {
+      alert('Favor de seleccionar un rol');
+      return;
+    }
+    if (tab === 'register' && role === 'docente' && !subject.trim()) {
+      alert('Favor de poner la materia que enseñas');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (tab == 'register') {
+        console.log('Registering user with role:', role); // Debug log
+
+        const userCredential = await registerUser(email, password, name, role, role == 'docente' ? subject : undefined);
+        if (userCredential) {
+          console.log("Usuario registrado: " + userCredential.user.email);
+          alert("Usuario registrado exitosamente, verifica tu correo para continuar");
+          setTab('login'); // Cambiar a la pestaña de login
+          setEmail('');
+          setPassword('');
+          setName('');
+          setSubject('');
+          // Don't reset role to keep it for login
+        }
+      } else {
+        // Logica Login
+        const result = await loginUser(email, password);
+        if (result) {
+          console.log("Usuario inició sesión con éxito");
+          navigateByRole(result.role);
+        }
+      }
+    } catch (error) {
+      console.error("Error in handlePress:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para quitar el campo de materia cuando no es profesor
   const handleRoleChange = (itemValue: string) => {
+    console.log('Role changed to:', itemValue); // Debug log
     setRole(itemValue);
     if (itemValue !== 'docente') {
       setSubject('');
     }
-  }
+  }; // Fixed: Added missing closing brace
 
+  const handleResendVerification = async () => {
+    const result = await resendEmail();
+    if (result) {
+      alert('Correo de verificación reenviado. Por favor revisa tu bandeja de entrada.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -95,8 +128,7 @@ export default function LoginScreen() {
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, tab === 'register' && styles.tabActive]}
-          onPress={() =>
-            setTab('register')}
+          onPress={() => setTab('register')}
         >
           <Text style={[styles.tabText, tab === 'register' && styles.tabTextActive]}>Registrarse</Text>
         </TouchableOpacity>
@@ -128,7 +160,16 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
           />
-
+          
+          {/* Resend verification email button */}
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={handleResendVerification}
+          >
+            <Text style={styles.linkText}>
+              ¿No recibiste el email de verificación? Reenviar
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -139,7 +180,7 @@ export default function LoginScreen() {
             placeholder="Nombre Completo"
             placeholderTextColor={COLORS.lightGray}
             keyboardType="default"
-            autoCapitalize="none"
+            autoCapitalize="words"
             value={name}
             onChangeText={setName}
           />
@@ -163,7 +204,7 @@ export default function LoginScreen() {
           <Text style={styles.label}>Selecciona tu rol</Text>
           <Picker
             selectedValue={role}
-            onValueChange={(itemValue) => setRole(itemValue)}
+            onValueChange={handleRoleChange} // Fixed: Now properly calls the function
             style={styles.picker}
             dropdownIconColor={COLORS.accent}
           >
@@ -172,13 +213,15 @@ export default function LoginScreen() {
             <Picker.Item label='Administrador' value="admin" />
           </Picker>
 
+          {/* Debug: Show current role */}
+          <Text style={styles.debugText}>Rol seleccionado: {role}</Text>
+
           {role == 'docente' && (
             <View>
               <TextInput
                 style={styles.input}
                 placeholder="Materia"
                 placeholderTextColor={COLORS.lightGray}
-                secureTextEntry
                 value={subject}
                 onChangeText={setSubject}
               />
@@ -202,9 +245,13 @@ export default function LoginScreen() {
       </Text>
 
       {/* BUTTON */}
-      <TouchableOpacity style={styles.button} onPress={handlePress} >
+      <TouchableOpacity 
+        style={[styles.button, loading && styles.buttonDisabled]} 
+        onPress={handlePress}
+        disabled={loading}
+      >
         <Text style={styles.buttonText}>
-          {tab === 'register' ? 'Registrarse' : 'Entrar'}
+          {loading ? 'Procesando...' : (tab === 'register' ? 'Registrarse' : 'Entrar')}
         </Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -286,6 +333,15 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     textDecorationLine: 'underline',
   },
+  linkButton: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  linkText: {
+    color: COLORS.accent,
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  },
   button: {
     backgroundColor: COLORS.background,
     borderWidth: 1,
@@ -294,6 +350,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 20,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: COLORS.text,
@@ -306,7 +365,10 @@ const styles = StyleSheet.create({
   logo: {
     color: COLORS.accent,
     fontWeight: 'bold',
-
+  },
+  debugText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    marginBottom: 10,
   },
 });
-

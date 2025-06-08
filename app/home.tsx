@@ -1,4 +1,4 @@
-// app/index.tsx
+// app/home.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -11,55 +11,98 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Link } from 'expo-router';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/firebase/config';
-
+import { doc, getDoc} from 'firebase/firestore';
+import { auth, db } from '@/firebase/config';
+import { useAppointments } from '@/hooks/useAppointments';
 
 export default function Home() {
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('');
 
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { appointments, loading: appointmentsLoading } = useAppointments(
+    auth.currentUser?.uid || '',
+    'tutor'
+  );
 
-  type Teacher = {
-  id:string
-  name: string;
-  subject: string;
-};
-
-
-  const fetchTeachers = async ()=> {
-    try{
-      setLoading(true);
-
-      const teachersQuery = query(
-        collection(db,'users'),
-        where('role','==','docente'),
-        where('emailVerified','==',true)
-
-      );
-      
-      const querySnapshot = await getDocs(teachersQuery);
-      const teachersData: Teacher[] = [];
-
-      querySnapshot.forEach((doc)=>{
-        const data = doc.data();
-        teachersData.push({
-          id:data.id,
-          name:data.name,
-          subject:data.subject
-        });
-      });
-      setTeachers(teachersData);
-    } catch(error){
-      console.error('Error en bsucar profesores',error);
-    }finally{
-      setLoading(false);
-    }
-  };
-
+  // Cargar datos usuario
   useEffect(() => {
-    fetchTeachers();
+    const fetchAppointments = async () => {
+      if (!auth.currentUser) return;
+
+      try {
+        const userDoc = await getDoc(doc(db,'users',auth.currentUser.uid));
+        if(userDoc.exists()){
+          const userData = userDoc.data();
+          setUserRole(userData.role);
+          setUserName(userData.name || '');
+        }
+      } catch (error) {
+        console.error('Error fetching appointments:', error);
+      } 
+    };
+
+    fetchAppointments();
   }, []);
+
+   const getAppointmentByStatus = () => {
+    const upcoming = appointments.filter(apt =>
+      apt.status === 'confirmed' || apt.status === 'pending'
+    );
+    const past = appointments.filter(apt => 
+      apt.status === 'cancelled' ||
+      (apt.status === 'confirmed' && new Date(apt.date) < new Date())
+    );
+    return { upcoming, past};
+   };
+
+   const { upcoming, past} = getAppointmentByStatus();
+
+   const renderAppointment = ({ item }: { item: any }) => (
+    <View style={styles.appointmentCard}>
+      <View style={styles.appointmentHeader}>
+        <Text style={styles.appointmentDate}>
+          {new Date(item.date).toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </Text>
+        <View style={[
+          styles.statusBadge,
+          { backgroundColor: item.status === 'confirmed' ? '#8FC027' : 
+                            item.status === 'cancelled' ? '#FF6B6B' : '#FFA500' }
+        ]}>
+          <Text style={styles.statusText}>
+            {item.status === 'pending' ? 'Pendiente' :
+             item.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
+          </Text>
+        </View>
+      </View>
+      
+      <Text style={styles.appointmentTime}>🕐 {item.time}</Text>
+      
+      {item.reason && (
+        <Text style={styles.appointmentReason}>📝 {item.reason}</Text>
+      )}
+      
+      {item.docenteId && (
+        <Text style={styles.appointmentTeacher}>Profesor asignado</Text>
+      )}
+    </View>
+  );
+
+  const renderEmptyAppointments = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyIcon}>📅</Text>
+      <Text style={styles.emptyTitle}>No tienes citas programadas</Text>
+      <Text style={styles.emptySubtitle}>
+        Agenda tu primera cita con un profesor usando el botón de arriba
+      </Text>
+    </View>
+  );
+
+
 
   return (
     <ScrollView style={styles.container}>
@@ -86,28 +129,81 @@ export default function Home() {
         </TouchableOpacity>
       </Link>
 
-      {/* DOCENTES DISPONIBLES */}
-      <View style={styles.teacherSection}>
-        <Text style={styles.sectionTitle}>Profesores disponibles</Text>
+      {/* APPOINTMENTS SECTION */}
+      <View style={styles.appointmentsSection}>
+        <Text style={styles.sectionTitle}>Mis Citas</Text>
+        
+        {appointmentsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3A557C" />
+            <Text style={styles.loadingText}>Cargando citas...</Text>
+          </View>
+        ) : appointments.length === 0 ? (
+          renderEmptyAppointments()
+        ) : (
+          <>
+            {/* UPCOMING APPOINTMENTS */}
+            {upcoming.length > 0 && (
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>
+                  Próximas citas ({upcoming.length})
+                </Text>
+                <FlatList
+                  data={upcoming}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderAppointment}
+                  scrollEnabled={false}
+                  showsVerticalScrollIndicator={false}
+                />
+              </View>
+            )}
 
-        <FlatList
-          data={teachers}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <Link href={`/teacher/${item.id}`} asChild>
-              <TouchableOpacity style={styles.teacherRow}>
-                <View style={styles.teacherAvatar} />
-                <Text style={styles.teacherName}>{item.name}</Text>
-                <Text style={styles.teacherName}>{item.subject}</Text>
-                <View style={{ flex: 1 }} />
-                <Text style={styles.teacherArrow}>→</Text>
-              </TouchableOpacity>
-            </Link>
-          )}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          scrollEnabled={false}
-        />
+            {/* PAST APPOINTMENTS */}
+            {past.length > 0 && (
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>
+                  Historial ({past.length})
+                </Text>
+                <FlatList
+                  data={past.slice(0, 5)} // Show only last 5 past appointments
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderAppointment}
+                  scrollEnabled={false}
+                  showsVerticalScrollIndicator={false}
+                />
+                {past.length > 5 && (
+                  <TouchableOpacity style={styles.viewMoreBtn}>
+                    <Text style={styles.viewMoreText}>Ver más historial</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </>
+        )}
       </View>
+
+      {/* QUICK STATS */}
+      {appointments.length > 0 && (
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>Resumen</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{appointments.length}</Text>
+              <Text style={styles.statLabel}>Total de citas</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{upcoming.length}</Text>
+              <Text style={styles.statLabel}>Próximas</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>
+                {appointments.filter(apt => apt.status === 'confirmed').length}
+              </Text>
+              <Text style={styles.statLabel}>Confirmadas</Text>
+            </View>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -120,6 +216,8 @@ const COLORS = {
   gray: '#A6A6A6',
   background: '#FFFFFF',
   dark: '#111111',
+  lightBg: '#F8F9FA',
+  border: '#E9ECEF',
 };
 
 const styles = StyleSheet.create({
@@ -127,9 +225,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  /* header */
+  
+  /* Header */
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 32,
@@ -137,9 +238,10 @@ const styles = StyleSheet.create({
   backArrow: {
     fontSize: 24,
     color: COLORS.dark,
-    position: 'absolute',
-    left: 16,
-    top: 24,
+  },
+  userInfo: {
+    alignItems: 'center',
+    flex: 1,
   },
   profileDot: {
     width: 26,
@@ -148,14 +250,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gray,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: COLORS.gray,
-    marginVertical: 16,
+    marginBottom: 8,
+  },
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.dark,
+    textAlign: 'center',
   },
 
-  /* main button */
+  /* Main button */
   mainBtn: {
     backgroundColor: COLORS.green,
     marginHorizontal: 32,
@@ -170,51 +278,161 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  /* teachers list */
-  teacherSection: {
-    backgroundColor: COLORS.blue,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
+  /* Appointments section */
+  appointmentsSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
   sectionTitle: {
-    color: COLORS.background,
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.dark,
     marginBottom: 16,
   },
-  teacherRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
+  subsection: {
+    marginBottom: 24,
   },
-  teacherAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.gray,
-    marginRight: 12,
-  },
-  teacherName: {
-    color: COLORS.background,
+  subsectionTitle: {
     fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.blue,
+    marginBottom: 12,
   },
-  teacherArrow: {
-    color: COLORS.background,
-    fontSize: 18,
+  
+  /* Appointment cards */
+  appointmentCard: {
+    backgroundColor: COLORS.lightBg,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.blue,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  separator: {
-    height: 1,
-    backgroundColor: '#284166',
+  appointmentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  appointmentDate: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.dark,
+    flex: 1,
+    marginRight: 8,
+    textTransform: 'capitalize',
+  },
+  appointmentTime: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginBottom: 6,
+  },
+  appointmentReason: {
+    fontSize: 14,
+    color: COLORS.dark,
+    marginBottom: 6,
+    fontStyle: 'italic',
+  },
+  appointmentTeacher: {
+    fontSize: 14,
+    color: COLORS.blue,
+    fontWeight: '500',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
   },
 
+  /* Empty state */
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 32,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.dark,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  /* Loading */
   loadingContainer: {
     alignItems: 'center',
     paddingVertical: 40,
   },
   loadingText: {
-    color: COLORS.background,
+    color: COLORS.blue,
     marginTop: 12,
     fontSize: 16,
+  },
+
+  /* View more */
+  viewMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  viewMoreText: {
+    color: COLORS.blue,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  /* Stats section */
+  statsSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.lightBg,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    borderTopWidth: 3,
+    borderTopColor: COLORS.green,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.blue,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    textAlign: 'center',
   },
 });

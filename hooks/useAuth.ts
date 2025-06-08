@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { auth,db } from "@/firebase/config";
-import {collection, doc, setDoc, getDoc} from "firebase/firestore";
+import {collection, doc, setDoc, getDoc, updateDoc} from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, reload } from "firebase/auth";
 
 
@@ -29,14 +29,18 @@ export const registerUser = async(email: string, password:string,name: string, r
         };
 
         const userData = role === 'docente' && subject 
-      ? { ...baseUserData, subject }
-      : baseUserData;
+        ? { ...baseUserData, subject }
+        : baseUserData;
 
       
         const usuarios = doc(db,"users",user.uid);
         await setDoc(usuarios,userData);
 
         console.log("Usuario registrado exitosamente");
+
+        await auth.signOut(); // Verificar email
+
+
         return userCredential;
     } catch(error) {
         console.log("Error al registrar usuario", error);
@@ -47,19 +51,33 @@ export const registerUser = async(email: string, password:string,name: string, r
 
 // Login de usuario
 export const loginUser = async(email:string, password:string) => {
-    const userCredential = await signInWithEmailAndPassword(auth, email,password);
-    const user = userCredential.user;
+    try{
+        const userCredential = await signInWithEmailAndPassword(auth, email,password);
+        const user = userCredential.user;
 
-    if(!user.emailVerified){
-        alert("Verifica tu cuenta antes de continuar");
-        await auth.signOut();
+        await reload(user); // Recargar para verificar email
+
+        if(!user.emailVerified){
+            alert("Verifica tu cuenta antes de continuar");
+            await auth.signOut();
+            return null;
+        }
+
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userData = userDoc.data();
+
+        if(userData && !userData.emailVerified) {
+            await updateDoc(doc(db, "users", user.uid), {
+                emailVerified: true
+            });
+        }
+        
+        return {user, role:userData?.role};
+    } catch(error) {
+        console.log("Error al iniciar sesion", error);
+        alert("Error al iniciar sesion");
         return null;
     }
-
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    const userData = userDoc.data();
-
-    return {user, role:userData?.role};
 }
 
 // Enviar email de verificacion
@@ -82,6 +100,26 @@ export const checkEmail = async(user:any) => {
         return user.emailVerified;
     }catch(error){
         console.error("Error al verificar", error);
+        return false;
+    }
+}
+
+export const resendEmail = async() => {
+    try{
+        const user = auth.currentUser;
+        if (user && !user.emailVerified) {
+            await sendEmailVerification(user);
+            alert("Email de verificación reenviado. Revisa tu correo.");
+            return true;
+        } else if (!user) {
+            alert("No hay usuario autenticado para reenviar el email.");
+            return false;
+        } else {
+            alert("El email ya ha sido verificado.");
+            return true;
+        }
+    } catch(error){
+        console.log("Error al reenviar email", error);
         return false;
     }
 }
