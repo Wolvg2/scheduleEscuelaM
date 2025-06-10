@@ -1,5 +1,5 @@
 // app/home.tsx
-import React, { useEffect, useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,39 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Link } from 'expo-router';
-import { doc, getDoc} from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
+import { onAuthStateChanged } from "firebase/auth";
 import { useAppointments } from '@/hooks/useAppointments';
 
 export default function Home() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('Auth state changed:', user?.uid);
+      setCurrentUser(user);
+      setAuthLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
 
   const { appointments, loading: appointmentsLoading } = useAppointments(
     auth.currentUser?.uid || '',
     'tutor'
   );
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Current user ID:', currentUser?.uid);
+    console.log('Appointments count:', appointments.length);
+    console.log('Appointments:', appointments);
+    console.log('Loading:', appointmentsLoading);
+  }, [currentUser, appointments, appointmentsLoading]);
 
   // Cargar datos usuario
   useEffect(() => {
@@ -30,34 +51,49 @@ export default function Home() {
       if (!auth.currentUser) return;
 
       try {
-        const userDoc = await getDoc(doc(db,'users',auth.currentUser.uid));
-        if(userDoc.exists()){
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
           const userData = userDoc.data();
           setUserRole(userData.role);
           setUserName(userData.name || '');
+          console.log('User data loaded:', userData);
         }
       } catch (error) {
         console.error('Error fetching appointments:', error);
-      } 
+      }
     };
 
     fetchAppointments();
-  }, []);
+  }, [currentUser]);
 
    const getAppointmentByStatus = () => {
-    const upcoming = appointments.filter(apt =>
-      apt.status === 'confirmed' || apt.status === 'pending'
-    );
-    const past = appointments.filter(apt => 
-      apt.status === 'cancelled' ||
-      (apt.status === 'confirmed' && new Date(apt.date) < new Date())
-    );
-    return { upcoming, past};
-   };
+    const now = new Date();
+    const upcoming = appointments.filter(apt => {
+      if (apt.status === 'cancelled') return false;
+      if (apt.status === 'pending' || apt.status === 'confirmed') {
+        // Improved date comparison
+        const appointmentDate = new Date(apt.date);
+        return appointmentDate >= now || apt.status === 'pending';
+      }
+      return false;
+    });
+    
+    const past = appointments.filter(apt => {
+      if (apt.status === 'cancelled') return true;
+      if (apt.status === 'confirmed') {
+        const appointmentDate = new Date(apt.date);
+        return appointmentDate < now;
+      }
+      return false;
+    });
+    
+    return { upcoming, past };
+  };
 
-   const { upcoming, past} = getAppointmentByStatus();
+  const { upcoming, past } = getAppointmentByStatus();
 
-   const renderAppointment = ({ item }: { item: any }) => (
+
+  const renderAppointment = ({ item }: { item: any }) => (
     <View style={styles.appointmentCard}>
       <View style={styles.appointmentHeader}>
         <Text style={styles.appointmentDate}>
@@ -70,22 +106,24 @@ export default function Home() {
         </Text>
         <View style={[
           styles.statusBadge,
-          { backgroundColor: item.status === 'confirmed' ? '#8FC027' : 
-                            item.status === 'cancelled' ? '#FF6B6B' : '#FFA500' }
+          {
+            backgroundColor: item.status === 'confirmed' ? '#8FC027' :
+              item.status === 'cancelled' ? '#FF6B6B' : '#FFA500'
+          }
         ]}>
           <Text style={styles.statusText}>
             {item.status === 'pending' ? 'Pendiente' :
-             item.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
+              item.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
           </Text>
         </View>
       </View>
-      
+
       <Text style={styles.appointmentTime}>🕐 {item.time}</Text>
-      
+
       {item.reason && (
         <Text style={styles.appointmentReason}>📝 {item.reason}</Text>
       )}
-      
+
       {item.docenteId && (
         <Text style={styles.appointmentTeacher}>Profesor asignado</Text>
       )}
@@ -132,7 +170,7 @@ export default function Home() {
       {/* APPOINTMENTS SECTION */}
       <View style={styles.appointmentsSection}>
         <Text style={styles.sectionTitle}>Mis Citas</Text>
-        
+
         {appointmentsLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3A557C" />
@@ -225,7 +263,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  
+
   /* Header */
   header: {
     flexDirection: 'row',
@@ -298,7 +336,7 @@ const styles = StyleSheet.create({
     color: COLORS.blue,
     marginBottom: 12,
   },
-  
+
   /* Appointment cards */
   appointmentCard: {
     backgroundColor: COLORS.lightBg,

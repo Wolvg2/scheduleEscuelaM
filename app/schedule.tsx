@@ -113,7 +113,13 @@ export default function Schedule() {
         status: 'pending',
         createdAt : new Date().toISOString(),
       });
+
+      setShowBookingModal(false);
+      setSelectedSlot(null);
+      setReason('');
+
       alert('Cita agendada exitosamente');
+      router.back();
 
     } catch (error) {
       console.error('Error al agendar cita:', error);

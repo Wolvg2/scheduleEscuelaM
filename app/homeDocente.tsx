@@ -16,6 +16,8 @@ import { useSchedule } from '@/hooks/useSchedule';
 import { useAppointments } from '@/hooks/useAppointments';
 import { auth, db } from '@/firebase/config';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 type Appointment = {
   id: string;
@@ -27,6 +29,7 @@ type Appointment = {
   status: 'pending' | 'confirmed' | 'cancelled';
   reason?: string;
   subject?: string;
+  observations?: string;
 };
 
 export default function HomeDocente() {
@@ -37,9 +40,13 @@ export default function HomeDocente() {
   const [time, setTime] = useState("");
   const [localSlots, setLocalSlots] = useState(slots);
   const [selectedView, setSelectedView] = useState<'slots' | 'appointments' | 'schedule'>('appointments');
+
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showAppointmentDetails, setShowAppointmentDetails] = useState(false);
   const [processingAppointment, setProcessingAppointment] = useState(false);
+  const [showObservationsModal, setShowObservationsModal] = useState(false);
+  const [observations, setObservations] = useState('');
+  const [isSavingObservations, setIsSavingObservations] = useState(false);
 
   // Cargar horarios del docente
   useEffect(() => {
@@ -74,6 +81,40 @@ export default function HomeDocente() {
     }
   };
 
+  // Add this function to handle opening the observations modal
+  const handleAddObservations = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setObservations(appointment.observations || '');
+    setShowObservationsModal(true);
+  };
+
+  // Add this function to save observations
+  const handleSaveObservations = async () => {
+    if (!selectedAppointment) return;
+
+    setIsSavingObservations(true);
+    try {
+      const appointmentRef = doc(db, 'appointments', selectedAppointment.id);
+      await updateDoc(appointmentRef, {
+        observations: observations.trim(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      setShowObservationsModal(false);
+      setSelectedAppointment(null);
+      setObservations('');
+
+    } catch (error) {
+      console.error('Error saving observations:', error);
+ 
+    } finally {
+      setIsSavingObservations(false);
+    }
+  };
+
+
+
+
   const handleRemoveSlot = (index: number) => {
     const updatedSlots = localSlots.filter((_, idx) => idx !== index);
     setLocalSlots(updatedSlots);
@@ -106,7 +147,8 @@ export default function HomeDocente() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed in JS
     return date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
@@ -114,6 +156,8 @@ export default function HomeDocente() {
       day: 'numeric',
     });
   };
+
+
 
   const getAppointmentsByStatus = () => {
     const pending = appointments.filter(apt => apt.status === 'pending');
@@ -125,7 +169,7 @@ export default function HomeDocente() {
   const { pending, confirmed, cancelled } = getAppointmentsByStatus();
 
   const renderAppointment = ({ item }: { item: Appointment }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.appointmentCard}
       onPress={() => showAppointmentDetailsModal(item)}
     >
@@ -135,26 +179,27 @@ export default function HomeDocente() {
         </Text>
         <View style={[
           styles.statusBadge,
-          { backgroundColor: 
-            item.status === 'confirmed' ? '#8FC027' :
-            item.status === 'cancelled' ? '#FF6B6B' : '#FFA500' 
+          {
+            backgroundColor:
+              item.status === 'confirmed' ? '#8FC027' :
+                item.status === 'cancelled' ? '#FF6B6B' : '#FFA500'
           }
         ]}>
           <Text style={styles.statusText}>
             {item.status === 'pending' ? 'Pendiente' :
-             item.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
+              item.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
           </Text>
         </View>
       </View>
-      
+
       <Text style={styles.appointmentTime}>🕐 {item.time}</Text>
-      
+
       {item.reason && (
         <Text style={styles.appointmentReason} numberOfLines={2}>
           📝 {item.reason}
         </Text>
       )}
-      
+
       <Text style={styles.appointmentTutor}>
         👤 Solicitada por tutor
       </Text>
@@ -171,52 +216,55 @@ export default function HomeDocente() {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Detalles de la Cita</Text>
-          
+
           {selectedAppointment && (
             <View style={styles.appointmentDetails}>
               <Text style={styles.detailLabel}>Tutor:</Text>
               <Text style={styles.detailValue}>
                 {selectedAppointment.tutorName || 'Cargando...'}
               </Text>
-              
+
               <Text style={styles.detailLabel}>Fecha:</Text>
               <Text style={styles.detailValue}>
                 {formatDate(selectedAppointment.date)}
               </Text>
-              
+
               <Text style={styles.detailLabel}>Hora:</Text>
               <Text style={styles.detailValue}>{selectedAppointment.time}</Text>
-              
+
               <Text style={styles.detailLabel}>Motivo:</Text>
               <Text style={styles.detailValue}>
                 {selectedAppointment.reason || 'Sin motivo especificado'}
               </Text>
+
               
+
               <Text style={styles.detailLabel}>Estado:</Text>
               <Text style={[
                 styles.detailValue,
-                { color: 
-                  selectedAppointment.status === 'confirmed' ? '#8FC027' :
-                  selectedAppointment.status === 'cancelled' ? '#FF6B6B' : '#FFA500'
+                {
+                  color:
+                    selectedAppointment.status === 'confirmed' ? '#8FC027' :
+                      selectedAppointment.status === 'cancelled' ? '#FF6B6B' : '#FFA500'
                 }
               ]}>
                 {selectedAppointment.status === 'pending' ? 'Pendiente' :
-                 selectedAppointment.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
+                  selectedAppointment.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
               </Text>
             </View>
           )}
 
           <View style={styles.modalButtons}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.modalButton, styles.cancelModalButton]}
               onPress={() => setShowAppointmentDetails(false)}
             >
               <Text style={styles.cancelModalButtonText}>Cerrar</Text>
             </TouchableOpacity>
-            
+
             {selectedAppointment?.status === 'pending' && (
               <>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.modalButton, styles.rejectButton]}
                   onPress={() => handleAppointmentAction(selectedAppointment, 'cancelled')}
                   disabled={processingAppointment}
@@ -225,8 +273,8 @@ export default function HomeDocente() {
                     {processingAppointment ? 'Procesando...' : 'Rechazar'}
                   </Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.modalButton, styles.confirmButton]}
                   onPress={() => handleAppointmentAction(selectedAppointment, 'confirmed')}
                   disabled={processingAppointment}
@@ -246,7 +294,7 @@ export default function HomeDocente() {
   const renderScheduleManagement = () => (
     <View style={styles.scheduleContainer}>
       <Text style={styles.sectionTitle}>Gestionar Horarios Disponibles</Text>
-      
+
       <View style={styles.inputContainer}>
         <TextInput
           placeholder="Fecha (YYYY-MM-DD)"
@@ -274,7 +322,7 @@ export default function HomeDocente() {
               <Text style={styles.slotText}>📅 {formatDate(item.date)}</Text>
               <Text style={styles.slotText}>🕐 {item.time}</Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.removeButton}
               onPress={() => handleRemoveSlot(index)}
             >
@@ -287,7 +335,7 @@ export default function HomeDocente() {
         }
         style={styles.slotsList}
       />
-      
+
       <TouchableOpacity style={styles.saveButton} onPress={handleSaveSlots}>
         <Text style={styles.saveButtonText}>Guardar Horarios</Text>
       </TouchableOpacity>
@@ -297,7 +345,7 @@ export default function HomeDocente() {
   const renderAppointmentsView = () => (
     <View style={styles.appointmentsContainer}>
       <Text style={styles.sectionTitle}>Gestión de Citas</Text>
-      
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3A557C" />
@@ -352,6 +400,8 @@ export default function HomeDocente() {
     </View>
   );
 
+  
+
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
@@ -362,6 +412,8 @@ export default function HomeDocente() {
 
       {/* Navigation Tabs */}
       <View style={styles.tabContainer}>
+
+
         <TouchableOpacity
           style={[styles.tab, selectedView === 'appointments' && styles.activeTab]}
           onPress={() => setSelectedView('appointments')}
@@ -370,7 +422,7 @@ export default function HomeDocente() {
             Citas
           </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={[styles.tab, selectedView === 'schedule' && styles.activeTab]}
           onPress={() => setSelectedView('schedule')}
@@ -432,7 +484,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  
+
   /* Header */
   header: {
     flexDirection: 'row',
@@ -777,5 +829,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.gray,
     textAlign: 'center',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: COLORS.blue,
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });

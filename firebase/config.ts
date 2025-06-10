@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { 
     initializeAuth,  getReactNativePersistence,
-    getAuth,
+    getAuth, onAuthStateChanged
 } from "firebase/auth";
 import { getFirestore} from 'firebase/firestore';
 
@@ -25,5 +25,14 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Auth with React Native persistence
 export const auth = getAuth(app);
 
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    console.log('User is signed in:', user.uid);
+  } else {
+    console.log('No user is signed in');
+  }
+});
+
 // Initialize Firestore
 export const db = getFirestore(app);
+

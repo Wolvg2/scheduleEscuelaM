@@ -12,6 +12,7 @@ type Appointment = {
     status: 'pending' | 'confirmed' | 'cancelled';
     reason?: string;
     subject?: string;
+    observations?: string;
 };
 
 export const useAppointments = (userId: string, role: 'docente' | 'tutor') => {
@@ -31,7 +32,8 @@ export const useAppointments = (userId: string, role: 'docente' | 'tutor') => {
         const q = query(
             appointmentRef,
             where(field, '==', userId),
-            orderBy('date', 'desc')
+            orderBy('date', 'desc'),
+            orderBy('__name__', 'desc')
 
         );
 
