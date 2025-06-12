@@ -1,5 +1,6 @@
 // app/schedule.tsx
 import React, { useState, useEffect} from 'react';
+import { db,auth } from '@/firebase/config';
 import {
   View,
   Text,
@@ -13,7 +14,7 @@ import {
 import { Stack,router } from 'expo-router';
 import { useSchedule } from '@/hooks/useSchedule';
 import {collection, query, where, getDocs,addDoc } from 'firebase/firestore';
-import { db,auth } from '@/firebase/config';
+
 
 type TeacherSchedule = {
   id: string;

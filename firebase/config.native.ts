@@ -1,8 +1,7 @@
 // firebase/config.native.ts
-import * as SecureStore from "expo-secure-store";
-import { initializeApp } from "firebase/app";
-import { initializeAuth, onAuthStateChanged } from "firebase/auth";
-import { getReactNativePersistence } from "firebase/auth/react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { initializeApp, getApps } from "firebase/app";
+import { initializeAuth, getAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -15,11 +14,30 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_MEASUREMENTID!
 };
 
-export const app = initializeApp(firebaseConfig);
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(SecureStore)
+// Initialize Firebase app only if it hasn't been initialized
+let app;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApps()[0];
+}
+
+// Initialize Auth with proper persistence
+let auth;
+try {
+  auth = getAuth(app);
+} catch (error) {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+}
+
+// Initialize Firestore
+const db = getFirestore(app);
+
+// Optional: Auth state listener (you can remove this if not needed)
+auth.onAuthStateChanged(user => {
+  console.log(user ? `✅ Sesión: ${user.uid}` : "🛑 Sin sesión");
 });
-onAuthStateChanged(auth, user =>
-  console.log(user ? `✅ Sesión: ${user.uid}` : "🛑 Sin sesión")
-);
-export const db = getFirestore(app);
+
+export { app, auth, db };

@@ -1,5 +1,8 @@
 // app/home.tsx
-import React, { use, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { auth, db } from '@/firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from "firebase/auth";
 import {
   View,
   Text,
@@ -11,9 +14,6 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Link } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/firebase/config';
-import { onAuthStateChanged } from "firebase/auth";
 import { useAppointments } from '@/hooks/useAppointments';
 
 export default function Home() {
@@ -143,7 +143,7 @@ export default function Home() {
 
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       {/* ENCABEZADO */}
       <View style={styles.header}>
         <Link href="/"> {/* flecha “atrás” simulada */}
@@ -242,7 +242,7 @@ export default function Home() {
           </View>
         </View>
       )}
-    </ScrollView>
+    </View>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback} from "react";
 import {auth,db} from '@/firebase/config';
 import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, addDoc, getDocs } from "firebase/firestore";
 
@@ -50,7 +50,7 @@ export const useSchedule = (teacherId: string) => {
                     const bookedSlotsSnap = await getDocs(bookedSlotsQuery);
                     const bookedSlots = bookedSlotsSnap.docs.map(doc => {
                         const data = doc.data();
-                        return '${data.date} ${data.time}';
+                        return `${data.date} ${data.time}`;
                     });
 
                     const filteredSlots = availableSlots.filter((slot: Slot) => 
@@ -169,7 +169,7 @@ export const useSchedule = (teacherId: string) => {
                 const appointmentRef = doc(db, 'appointments', appointmentId);
                 await updateDoc(appointmentRef, {
                     status: 'cancelled',
-                    cancellAt: new Date().toISOString(),
+                    cancelledAt: new Date().toISOString(),
                 });
                 return true;
             } catch (error) {

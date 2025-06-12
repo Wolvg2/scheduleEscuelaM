@@ -1,3 +1,4 @@
+import { auth, db } from '@/firebase/config';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -14,10 +15,9 @@ import {
 } from 'react-native';
 import { useSchedule } from '@/hooks/useSchedule';
 import { useAppointments } from '@/hooks/useAppointments';
-import { auth, db } from '@/firebase/config';
+
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+
 
 type Appointment = {
   id: string;
@@ -403,7 +403,7 @@ export default function HomeDocente() {
   
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Panel Docente</Text>
@@ -460,7 +460,7 @@ export default function HomeDocente() {
           </View>
         </View>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
