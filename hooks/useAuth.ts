@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { auth,db } from "@/firebase/config";
-import {collection, doc, setDoc, getDoc, updateDoc} from "firebase/firestore";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, reload } from "firebase/auth";
+import { auth, db } from "@/firebase/config";
+import { createUserWithEmailAndPassword, reload, sendEmailVerification, signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 
 // Registro de usuarios 
