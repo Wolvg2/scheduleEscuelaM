@@ -11,12 +11,14 @@ import {
   ActivityIndicator,
   TextInput,
   Button,
-  Modal
+  Modal,
+  Alert
 } from 'react-native';
 import { useSchedule } from '@/hooks/useSchedule';
 import { useAppointments } from '@/hooks/useAppointments';
 
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { router } from 'expo-router';
 
 
 type Appointment = {
@@ -342,6 +344,23 @@ export default function HomeDocente() {
     </View>
   );
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Deseas cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar sesión',
+          onPress: () => {
+            auth.signOut();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
   const renderAppointmentsView = () => (
     <View style={styles.appointmentsContainer}>
       <Text style={styles.sectionTitle}>Gestión de Citas</Text>
@@ -402,12 +421,18 @@ export default function HomeDocente() {
 
   
 
+  
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Panel Docente</Text>
-        <View style={styles.profileDot} />
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Salir</Text>
+        </TouchableOpacity>
+
+        
       </View>
 
       {/* Navigation Tabs */}
@@ -841,5 +866,17 @@ const styles = StyleSheet.create({
     color: COLORS.blue,
     marginLeft: 8,
     fontWeight: '500',
+  },
+  /* Logout Button */
+    logoutButton: {
+    backgroundColor: COLORS.danger,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: COLORS.background,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
