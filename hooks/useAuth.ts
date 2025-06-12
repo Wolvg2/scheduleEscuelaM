@@ -24,7 +24,9 @@ export const registerUser = async(email: string, password:string,name: string, r
             email,
             name,
             role,
-            emailVerified:false
+            emailVerified:false,
+            isActive: true,
+            createdAt: new Date().toISOString(),
         };
 
         const userData = role === 'docente' && subject 
@@ -65,6 +67,18 @@ export const loginUser = async(email:string, password:string) => {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
 
+        if (!userData) {
+            alert("Usuario no encontrado en la base de datos");
+            await auth.signOut();
+            return null;
+        }
+
+        if (userData.isActive === false) {
+            alert("Tu cuenta está desactivada. Contacta al administrador.");
+            await auth.signOut();
+            return null;
+        }
+
         if(userData && !userData.emailVerified) {
             await updateDoc(doc(db, "users", user.uid), {
                 emailVerified: true
@@ -103,6 +117,7 @@ export const checkEmail = async(user:any) => {
     }
 }
 
+// Reenviar email de verificacion
 export const resendEmail = async() => {
     try{
         const user = auth.currentUser;

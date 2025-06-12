@@ -11,17 +11,22 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Link } from 'expo-router';
 import { useAppointments } from '@/hooks/useAppointments';
+import { router } from 'expo-router';
 
+
+// Funcion Home
 export default function Home() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [authLoading, setAuthLoading] = useState(true);
 
+  
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log('Auth state changed:', user?.uid);
@@ -66,6 +71,7 @@ export default function Home() {
     fetchAppointments();
   }, [currentUser]);
 
+  // Obtener el estatus de las citas 
    const getAppointmentByStatus = () => {
     const now = new Date();
     const upcoming = appointments.filter(apt => {
@@ -92,7 +98,7 @@ export default function Home() {
 
   const { upcoming, past } = getAppointmentByStatus();
 
-
+  // Constante que renderiza la cita 
   const renderAppointment = ({ item }: { item: any }) => (
     <View style={styles.appointmentCard}>
       <View style={styles.appointmentHeader}>
@@ -130,6 +136,26 @@ export default function Home() {
     </View>
   );
 
+    // Constante que permite cerrar sesion 
+    const handleLogout = () => {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Deseas cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Cerrar sesión', 
+          onPress: () => {
+            auth.signOut();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
+
+  // Constante que renderiza citas vacias 
   const renderEmptyAppointments = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyIcon}>📅</Text>
@@ -146,9 +172,11 @@ export default function Home() {
     <View style={styles.container}>
       {/* ENCABEZADO */}
       <View style={styles.header}>
-        <Link href="/"> {/* flecha “atrás” simulada */}
-          <Text style={styles.backArrow}>←</Text>
-        </Link>
+        <Text style={styles.headerTitle}>Panel Tutor</Text>
+        <Text style={styles.headerSubtitle}>Bienvenido, {currentUser?.name}</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Salir</Text>
+        </TouchableOpacity>
 
         <Image
           source={require('../assets/images/avatar.png')} // circular placeholder
@@ -256,6 +284,9 @@ const COLORS = {
   dark: '#111111',
   lightBg: '#F8F9FA',
   border: '#E9ECEF',
+  danger: '#FF6B6B',
+  warning: '#FFA500',
+  success: '#28A745',
 };
 
 const styles = StyleSheet.create({
@@ -272,6 +303,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 32,
+  },
+    headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.dark,
+  },
+    headerSubtitle: {
+    fontSize: 14,
+    color: COLORS.blue,
+    marginTop: 2,
   },
   backArrow: {
     fontSize: 24,
@@ -472,5 +513,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.gray,
     textAlign: 'center',
+  },
+    /* Logout Button */
+    logoutButton: {
+    backgroundColor: COLORS.danger,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: COLORS.background,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
